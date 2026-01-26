@@ -1,0 +1,25 @@
+---
+title: "Lecture-code"
+format:
+  html:
+    toc: true
+    toc-location: left
+    theme: spacelab
+    code-fold: false
+---
+
+```{r }
+# x <- scan() # wont accept string
+floor(6.3) # same as 6.3%/%1
+temp <- c(273, 283, 293, 303, 313, 323, 333, 343, 353, 363, 373)
+length(temp)
+r_temp <- rev(temp)
+summary(r_temp)
+vp <- c(4.6, 9.2, 17.5, 31.8, 55.3, 92.5, 149.4, 233.7, 355.1, 525.8, 760.0)
+vapor <- data.frame(temp, vp)
+vapor$temp
+vapor$vp
+inv_temp <- 1/vapor$temp
+plot(vapor)
+plot(vapor$temp, vapor$vp)
+```
