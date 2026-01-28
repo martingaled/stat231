@@ -23,3 +23,62 @@ inv_temp <- 1/vapor$temp
 plot(vapor)
 plot(vapor$temp, vapor$vp)
 ```
+
+```{r}
+# generating numbers
+seq(0,1,length = 15)
+rep("A", 10)
+runif(50, 0, 1)
+
+
+# plotting
+x <- -50:50
+y <-  x^3
+
+plot(x,y, type = "p") 
+plot(x,y, type = "l") 
+plot(x,y, type = "b") 
+plot(x,y, type = "n") 
+plot(x,y, type = "h") 
+plot(x, y, type = "l", lty = 1)
+plot(x, y, type = "l", lty = 2)
+plot(x, y, type = "l", lty = 3)
+plot(x, y, type = "l", lty = 4)
+x <- 0:50
+y <-  x^3
+plot(x, y, type = "p", pch = "💀")
+
+
+
+(hist(trunc(100*runif(1000))))
+(hist(rnorm(1e6,5,5)))
+(hist(rexp(1e6), nclass = 35))
+barplot(trunc(10*runif(10)))
+hist(trunc(10*runif(10)))
+boxplot(rexp(1000))
+
+
+
+plot(2:10, 32:40, pch = 10)
+x <- seq(2, 10, length = 20)
+y <- seq(32, 40, length = 20)
+points(x^2, y)
+
+plot(2:10, 32:40, pch = 15, ylim = c(0,100))
+lines(x, y)
+
+x <- runif(100)
+
+plot(floor(10*x), 10*x, pch = 10)
+points(ceiling(10*x), 10*x, pch = 15, col = "blue")
+points(round(10*x), 10*x, pch = 5, col = "red")
+abline(0,1)
+
+
+x <- seq(0, 2*pi, length = 100)
+x
+plot(x, sin(x), type = "l", col = "blue")
+points(x, cos(x), type = "l", col = "red")
+abline(h=0)
+
+```
