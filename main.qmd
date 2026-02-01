@@ -81,4 +81,6 @@ plot(x, sin(x), type = "l", col = "blue")
 points(x, cos(x), type = "l", col = "red")
 abline(h=0)
 
+
 ```
+

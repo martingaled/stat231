@@ -1,0 +1,85 @@
+---
+title: "Assignment 1"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    mainfont: "Helvetica"
+---
+
+```{r }
+
+# Part 1
+
+# a 
+# Generate 5 random digits from 0 to 9 and store it in vector 𝑉_1.
+(v_1 <- trunc(runif(5, 0, 9)))
+# A sequence 𝑉_2 starting at 1 and ending at 20, with an increment of 3.
+(v_2 <- seq(1,20,3))
+# A vector 𝑉_3 repeating the number 7, ten times.
+(v_3 <- rep(7, 10))
+
+# b
+# combine v_1, v_2, and v_3 into a single vector
+(v <- c(v_1, v_2, v_3))
+
+# c
+# Remove all numbers greater than 10 from vector 𝑉
+# save the result in vector 𝑊
+(w <- v[v<=10]) # for getting the sub list
+
+# d
+v
+w
+
+
+
+# Part 2
+
+# a
+n = 30
+# Generate random vector x_1 from normal distribution with 
+# mean = 10 and var = 4
+(x_1 <- rnorm(n, mean = 10, sd = 2))
+# b
+# Generate random vector x_2 = 3 + y where y has normal distribution with 
+# mean = 0 and variance = 25
+(x_2 = 3 + rnorm(n, mean = 0, sd = 5))
+
+# c
+# Make the scatter plot 𝑥_1 versus 𝑥_2, using the plot function and color blue. 
+# Use suitable title (including your name as subtitle) and 𝑥 and 𝑦 axis labels
+plot(x_1, x_2, 
+    col = "blue", 
+    main = "x_1 vs x_2", 
+    sub = "Hussain", 
+    xlab = "x_1", 
+    ylab = "y_1",
+    ) 
+# d
+# Add the line 𝑦 = 2.8 + 2.7𝑥 to the plot of part (c) and color red
+abline(a = 2.8, b = 2.7, col = "red") # plot out of range
+
+plot(x_1, x_2, 
+    col = "blue", 
+    main = "x_1 vs x_2", 
+    sub = "Hussain", 
+    xlab = "x_1", 
+    ylab = "y_1",
+    ylim = c(-10,40)) 
+
+abline(a = 2.8, b = 2.7, col = "red")
+
+
+# e
+# Add suitable legend into your plot
+legend("topleft",
+       legend = c("Data points", "y = 2.8 + 2.7x"),
+       col = c("blue", "red"),
+       pch = c(1, NA), # for the data point
+       lty = c(NA, 1), # for the line
+       cex = 0.6, # for reducing the font size
+       bty = "n" # removing the box
+       )
+
+```
