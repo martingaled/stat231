@@ -84,3 +84,102 @@ abline(h=0)
 
 ```
 
+```{r } 
+# R code Example 2.1
+
+Age<-c(15.50, 23.75, 8.00, 17.00, 5.50, 19.00, 24.00, 2.50, 7.50, 11.00, 13.00, 3.75, 25.00, 9.75, 22.00, 18.00, 6.00, 12.50, 2.00, 21.50)
+Shear<-c(2158.70, 1678.15, 2316.00, 2061.30, 2207.50, 1708.30, 1784.70, 2575.00, 2357.90, 2256.70, 2165.20, 2399.55, 1779.80, 2336.75, 1765.30, 2053.50, 2414.40, 2200.50, 2654.20, 1753.70)
+
+plot(Age, Shear)  # Scatter Plot
+
+
+Rocket.Data<-data.frame(Shear, Age)  # Define the data frame
+
+# Finding regression parameters
+# First method using the formulas
+
+n<-length(Age)
+x<-Age ; y<-Shear
+Sxx<-sum(x^2)-(sum(x))^2/n  # sum of squares of x
+Sxy<-sum(x*y)-sum(x)*sum(y)/n   # sum of squares of xy
+
+hatbeta1<-Sxy/Sxx
+hatbeta0<-mean(y)-hatbeta1*mean(x)
+
+cat("Hat beta1=", hatbeta1, "\n")
+cat("Hat beta0=", hatbeta0, "\n")
+
+
+abline(hatbeta0, hatbeta1, col = "red")
+
+#####################################
+# Second Method  #  R lm Code
+Out1<-lm(Shear~Age) # Get regression coefficients
+summary(Out1)
+plot(Out1)
+
+abline(2627.82, -37.15)  # to add regression line
+
+# For more detailes Regression outputs
+
+(fitted <- 2627.822 -37.154 *x)
+fitted(Out1)  # hat y
+Out1$fitted.values
+
+(redisuals <- y - fitted)
+resid(Out1)   # residuals
+Out1$residuals
+
+anova(Out1)   # Analysis of Variance Table
+
+
+
+
+```
+
+
+```{r example}
+
+# example 1
+x <- c(24.00, 29.00, 24.00, 22.50, 17.75, 21.50, 24.00, 28.50, 21.00, 24.00, 23.50, 20.00)
+y <- c(34.00, 33.69, 35.00,35.00, 28.00, 34.00, 29.50, 30.00, 28.00, 33.00, 17.50, 28.00)
+plot(x, y)
+
+grades.fit <- lm(x ~ y)
+summary(grades.fit)
+
+
+n<-length(x)
+Sxx<-sum(x^2)-(sum(x))^2/n  # sum of squares of x
+Sxy<-sum(x*y)-sum(x)*sum(y)/n   # sum of squares of xy
+
+(hatbeta1<-Sxy/Sxx)
+(hatbeta0<-mean(y)-hatbeta1*mean(x))
+
+abline(hatbeta0, hatbeta1, col = "red", lty = "dashed")
+
+
+# example 2
+x <- c(4, -1, 2, 3, 5, 4, 1)
+y <- c(15, 10, 16, 12, 18, 17, 14)
+plot(x, y, main = "Scatter plot: x vs y")
+
+test.fit <- lm(x ~ y)
+summary(grades.fit)
+
+
+n<-length(x)
+Sxx<-sum(x^2)-(sum(x))^2/n  # sum of squares of x
+Sxy<-sum(x*y)-sum(x)*sum(y)/n   # sum of squares of xy
+
+(hatbeta1<-Sxy/Sxx)
+(hatbeta0<-mean(y)-hatbeta1*mean(x))
+
+abline(hatbeta0, hatbeta1, col = "red", lty = "dashed")
+
+(mean(test.fit$residuals))
+test.fit$fitted.values
+
+
+````
+
