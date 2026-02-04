@@ -102,22 +102,49 @@ n<-length(Age)
 x<-Age ; y<-Shear
 Sxx<-sum(x^2)-(sum(x))^2/n  # sum of squares of x
 Sxy<-sum(x*y)-sum(x)*sum(y)/n   # sum of squares of xy
-
+SST <- sum(y^2) - (sum(y))^2/n  # Total sum of squares
+SSRes <- SST - Sxy^2/Sxx                # Regression sum of squares
 hatbeta1<-Sxy/Sxx
 hatbeta0<-mean(y)-hatbeta1*mean(x)
+hatsigma2<-SSRes/(n-2)  # estimate of variance of error term
 
-cat("Hat beta1=", hatbeta1, "\n")
-cat("Hat beta0=", hatbeta0, "\n")
-
+errorbeta1<-sqrt(hatsigma2/Sxx)  # standard error of beta1
+errorbeta0<-sqrt(hatsigma2*(1/n + (mean(x))^2/Sxx))  # standard error of beta0
 
 abline(hatbeta0, hatbeta1, col = "red")
 
+
+
+# testing hypothesis beta1 = 0
+(tvalue<-hatbeta1/errorbeta1)
+# p-value for two tail test
+(2*(1 - pt(abs(tvalue), df = n-2)))
+
+
+(1 - pt(abs(tvalue), df = n-2))
+
+qt(0.975, df = n-2)  # critical value for 95% confidence interval
+qnorm(0.975)
+
+
+# testing hypothesis beta0 = 0
+(tvalue0<-hatbeta0/errorbeta0)
+
+# p-value for two tail test
+(2*(1 - pt(abs(tvalue0), df = n-2)))
+
+# plotting tdistribution
+
+
+
+
 #####################################
 # Second Method  #  R lm Code
+
 Out1<-lm(Shear~Age) # Get regression coefficients
 summary(Out1)
 plot(Out1)
-
+anova(Out1)
 abline(2627.82, -37.15)  # to add regression line
 
 # For more detailes Regression outputs
