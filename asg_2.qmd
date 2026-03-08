@@ -1,0 +1,143 @@
+---
+title: "Assignment 2"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    mainfont: "Papyrus"
+    headings-font: "Papyrus"
+---
+
+## Data Description:
+The purity of oxygen produced by a fractional distillation process is thought to be
+related to the percentage of hydrocarbons in the main condensor of the processing unit.
+
+
+## a. Enter the data into R and make a dataframe
+
+```{r data}
+purity <- c(86.91, 89.85, 90.28, 86.34, 92.58, 87.33, 86.29, 91.86, 95.61, 
+89.86, 96.73, 99.42, 98.66, 96.07, 93.65, 87.31, 95.00, 96.85, 85.20, 90.56)
+
+hydrocarbon <- c(1.02, 1.11, 1.43, 1.11, 1.01, 0.95, 1.11, 0.87, 1.43, 1.02, 
+1.46, 1.55, 1.55, 1.55, 1.40, 1.15, 1.01, 0.99, 0.95, 0.98)
+
+data <- data.frame(purity, hydrocarbon)
+
+data
+```
+
+## b. Fit a simple linear regression model to the data
+
+```{r model}
+
+
+# using in built in function
+model <- lm(data$purity ~ data$hydrocarbon)
+
+# computation
+n <- length(data$purity)
+x <- data$hydrocarbon
+y <- data$purity
+syy <- sum(y**2) - ((sum(y)**2)/n)
+sxx <- sum(x**2) - ((sum(x)**2)/n)
+sxy <- sum(x*y) - ((sum(x)*sum(y))/n)
+
+(beta1_hat <- sxy/sxx)
+(beta0_hat <- mean(y) - beta1_hat*mean(x))
+
+# to check the coefficients from the model
+(model$coefficients)
+
+
+plot(x, y)
+abline(beta0_hat, beta1_hat, col = "red", lty = 2)
+```
+## c. Calculate $R^2$ and interpret its value.
+```{r r-squared}
+# sum square error
+(sse <- syy - ((sxy)**2/sxx))
+# sum square total
+(sst <- syy)
+# sum square regression
+(ssr <- sst - sse)
+
+# rsq (MSE)
+(rsq <- ssr/sst)
+```
+:::::: {.callout-note}
+R-squared value of 0.39 means the model can explain 39% of the variance. In other words, the variable hydrocarbon can explain 39% of the variability in purity. The remaining 61% of the variance is due to other factors not included in the model or random error.
+:::
+
+
+## d. Test the null hypothesis $H_0: \beta_1 = 0$ versus $H_1: \beta_1 \neq 0$ at $\alpha = 0.01.$
+
+```{r testing beta_1}
+(mse <- sse/(n-2))
+(t_0 <- (beta1_hat/sqrt(mse/sxx)))
+(p_value <- 2 * (1 - pt(abs(t_0), n-2)))
+cat(p_value>0.01)
+```
+::: {.callout-note}
+-   The p-value is less than the alpha = 0.01, hence we reject the null hypothesis. 
+-   This suggests that there is a statistically Significant relationship between hydrocarbon  and purity.
+-   beta1 is not equal to zero.
+:::
+
+## e. Find 95% CI on the slope 
+
+```{r ci}
+upper <- beta1_hat + sqrt(mse/sxx) * qt(0.975, n-2)
+lower <- beta1_hat - sqrt(mse/sxx) * qt(0.975, n-2)
+cat("95% CI for beta1: [", lower, ", ", upper, "]")
+```
+
+
+## f. Find s 95% CI on the mean purity when the percentage of hydrocarbons is 1.00.
+
+![formula: 2.43](mean_ci_formula.png){width="50%"}
+
+```{r ci_mean}
+# using the formula 2.43 from the notes
+mu_hat <- beta0_hat + beta1_hat * 1.00
+se_mu <- sqrt(mse * (1/n + (1.00 - mean(x))**2/sxx))
+upper_mu <- mu_hat + se_mu * qt(0.975, n-2)
+lower_mu <- mu_hat - se_mu * qt(0.975, n-2)
+cat("95% CI for mean purity when x_0 is 1.00: [", lower_mu, ", ", upper_mu, "]")
+```
+
+
+## g.construct the analysis of variance table
+
+
+```{r anova}
+# using in built function
+summary(aov(model))
+
+# we know ssr, sse, and sst
+
+# degrees of freedom are defined as follows:
+df_r <- 1
+df_t <- n - 1
+df_e <- df_t - df_r
+
+# mean squares
+msr <- ssr/df_r
+mse <- sse/df_e
+
+# F statistic
+(F_stat <- msr/mse)
+
+# p-value for F statistic
+(p_value_f <- 1 - pf(F_stat, df_r, df_e))
+
+
+# checking hypothesis that at least one predictor is significant
+cat(p_value_f < 0.01)
+
+```
+
+::: {.callout-note}
+-   Since the p-value for the F statistic is less than 0.01, we reject the null hypothesis that all regression coefficients are equal to zero. 
+-   This suggests that hydrocarbon is significantly related to the response variable (purity).
+:::

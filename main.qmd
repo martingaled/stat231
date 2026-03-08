@@ -1,11 +1,9 @@
 ---
 title: "Lecture-code"
 format:
-  html:
-    toc: true
-    toc-location: left
-    theme: spacelab
-    code-fold: false
+  pdf:
+    mainfont: "Papyrus"
+    headings-font: "Papyrus"
 ---
 
 ```{r }
@@ -206,7 +204,68 @@ abline(hatbeta0, hatbeta1, col = "red", lty = "dashed")
 
 (mean(test.fit$residuals))
 test.fit$fitted.values
+```
 
 
-````
+
+```{r income_data}
+income_data <- read.csv("incomedata.csv")
+head(income_data)
+x <- income_data$income
+y <- income_data$happiness
+plot(x, y, col = "blue")
+abline(lm(y ~ x), col = "red")
+model <- lm(x ~y)
+summary(model)
+plot(model)
+
+
+# confidence interval for beta1
+se <- summary(model)$coefficients[2, 2]  # standard error of beta1
+beta1 <- summary(model)$coefficients[2, 1]  # estimate of beta1
+n <- nrow(income_data)  # number of observations
+t_value <- qt(0.975, df = n - 2)  # critical value for 95% confidence interval
+lower_bound <- beta1 - t_value * se
+upper_bound <- beta1 + t_value * se
+cat("95% confidence interval for beta1: [", lower_bound, ", ", upper_bound, "]\n")
+
+
+
+```
+
+
+```{r }
+library(MPV)
+data(table.b1)
+head(table.b1)
+# attach(table.b1)
+# detatch(table.b1)
+plot(table.b1$x8, table.b1$y)
+abline(model$coefficients[1],model$coefficients[2], col = "red", lty = "dashed")
+model <- lm(table.b1$y ~ table.b1$x8)
+summary(model)
+summary(aov(model))
+# confidence interval for beta1
+```
+```{r multiple_regression}
+#| eval: false
+library(MPV)
+data(p8.3)
+head(p8.3)
+attach(p8.3)
+par(mfrow = c(1,3))
+plot(x1, x2)
+plot(x1, y)
+plot(x2, y)
+x <- matrix(rbind(rep(1, length(y)),x1, x2), byrow = TRUE, ncol = 3)
+# bind by row
+
+beta_hat <- solve(t(x)%*%x)%*%t(x)%*%y
+model <- lm(y ~ x1 + x2)
+summary(model)
+anova(model)
+```
+
+
+
 
