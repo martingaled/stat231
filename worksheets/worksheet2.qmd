@@ -1,0 +1,145 @@
+---
+title: "Worksheet - 2"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    fontsize: 8pt
+    fig.width: 4
+    fig.height: 3
+    fig.align: "center"
+---
+
+
+```{r }
+#| warning: false
+library(MPV)
+library(knitr)
+data(p7.6)
+
+kable(p7.6)
+
+y <- p7.6$y
+x1 <- p7.6$x1
+x2 <- p7.6$x2
+
+p1 <- plot(x1, y)
+p2 <- plot(x2, y)
+# correlation
+cor(x1, y)
+cor(x2, y)
+```
+
+## Initial analysis
+
+-    `x2` is showing some positive relationship with `y` (correlation = 0.98) while `x1` is just showing weakrelationship (correlation = 0.56)
+
+
+```{r fits}
+#a 
+model1 <- lm(y ~ x1 + x2)
+model2 <- lm(y ~ x1 + x2 + I(x1^2) + I(x2^2))
+
+summary(model1)
+summary(model2)
+```
+
+
+# Model 1
+
+```{r normality_plot_model_!}
+# normality plot
+qqnorm(residuals(model1))
+qqline(residuals(model1))
+```
+
+```{r normality}
+shapiro.test(residuals(model1))
+```
+
+## Normality of Residuals
+
+-   Virtually all the points are on the line, which indicates that the residuals are normally distributed.
+-   Additionally, shapiro test also confirms the normality of residuals (p-value = 0.871)
+
+
+
+
+```{r residual_plot}
+# residual vs fitted plot
+preds <- predict(model1)
+plot(preds, residuals(model1))
+abline(h = 0, col = "red")
+```
+
+
+```{r student_residuals}
+# rstudent residuals
+rstudent_residuals <- rstudent(model1)
+plot(preds, rstudent_residuals)
+abline(h = 0, col = "red")
+```
+
+```{r studentized_residuals}
+# studentized residuals
+studentized_residuals <- rstandard(model1)
+plot(preds, studentized_residuals)
+abline(h = 0, col = "red")
+```
+
+## Interpretation of residual plots for model1
+-    All three plots are not showing any funnel shape, which indicates that the variance of residuals is constant across fitted values.
+-    There are no points with large residuals (more than 3 standard deviations), which indicates that there are no outliers 
+
+
+# Model 2
+
+```{r }
+# normality plot
+qqnorm(residuals(model2))
+qqline(residuals(model2))
+```
+
+```{r }
+shapiro.test(residuals(model2))
+```
+
+## Normality of Residuals
+
+-   Virtually all the points are on the line, which indicates that the residuals are normally distributed.
+-   Additionally, shapiro test also confirms the normality of residuals (p-value = 0.87)
+
+
+
+
+```{r }
+# residual vs fitted plot
+preds <- predict(model2)
+plot(preds, residuals(model2))
+abline(h = 0, col = "red")
+```
+
+
+```{r student_residuals_M2}
+# rstudent residuals
+rstudent_residuals <- rstudent(model2)
+plot(preds, rstudent_residuals)
+abline(h = 0, col = "red")
+```
+
+```{r studentized_residuals_M2}
+# studentized residuals
+studentized_residuals <- rstandard(model2)
+plot(preds, studentized_residuals)
+abline(h = 0, col = "red")
+```
+
+## Interpretation of residual plots for model2
+-   All three plots are not showing any funnel shape, which indicates that the variance of residuals is constant across fitted values.
+-   There are no points with large residuals (more than 3 standard deviations), which indicates that there are no outliers 
+Compute the studentized residuals and the R ‐ student residuals for this model. What
+information is conveyed by these scaled residuals?
+-   Studentized residuals are the residuals divided by an estimate of their standard deviation. They are used to identify outliers in the data. 
+-   R-student residuals are similar to studentized residuals but they are calculated using a different method for estimating the standard deviation. 
+-   Both help in identifying outliers in the data. 
+-   If there are any points with large studentized or R-student residuals (greater than 3 standard deviations), they may be considered outliers.

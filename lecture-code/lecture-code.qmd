@@ -126,3 +126,91 @@ abline(2627.82, -37.15)
 Out1$fitted.values
 resid(Out1)
 ```
+
+
+```{r leverage_influence}
+library(MPV)
+data(table.b9)
+attach(table.b9)
+colnames(table.b9)
+plot(table.b9$x1, table.b9$y)
+# scatter plot comb for x1, x2, x3, x4  each vs y
+plot(table.b9$x2, table.b9$y)
+plot(table.b9$x3, table.b9$y)
+plot(table.b9$x4, table.b9$y)
+
+lm1 <- lm(y ~ x1 + x2 + x3 + x4, data = table.b9)
+summary(lm1)
+library(patchwork)
+
+# parmfrow
+par(mfrow = c(2, 2))
+plot(lm1, which = 1)
+plot(lm1, which = 2)
+plot(lm1, which = 3)
+plot(lm1, which = 4)
+
+# identify points with high leverage
+plot(lm1, which = 5)
+# hat values
+
+plot(hatvalues(lm1), type = "h")
+p <- length(coef(lm1))
+abline(h = 2*5/length(y))
+identify(hatvalues(lm1), labels = 1:nrow(table.b9))
+
+
+# cook's distance
+
+
+
+library(MPV)
+data(p8.3)
+head(p8.3)
+fit <- lm(y ~ x1 + x2 , data = p8.3)
+dffits <- dffits(fit)
+plot(dffits, type = "h")
+abline(0,0, col = "black")
+p <- length(coef(fit))
+n <- length(p8.3$y)
+cutoff <- 2*sqrt(p/n)
+abline(h = cutoff, col = "red", lty = 2)
+abline(h = -cutoff, col = "red", lty = 2)
+labels <- 1:nrow(p8.3)
+identify(dffits, labels = labels)
+
+dbetafits <- dfbetas(fit)
+plot(dbetafits[,1], type = "h", main = "dfbeta for x1")
+abline(0,0, col = "black")
+cutoff_dbeta <- 2/sqrt(n)
+abline(h = cutoff_dbeta, col = "red", lty = 2)
+abline(h = -cutoff_dbeta, col = "red", lty = 2)
+
+
+dbetafits <- dfbetas(fit)
+plot(dbetafits[,2], type = "h", main = "dfbeta for x2")
+abline(0,0, col = "black")
+cutoff_dbeta <- 2/sqrt(n)
+abline(h = cutoff_dbeta, col = "red", lty = 2)
+abline(h = -cutoff_dbeta, col = "red", lty = 2)
+
+
+
+x <- c(0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50)
+y <- c(1.42, 1.39, 1.55, 1.89, 2.43, 3.15, 4.05, 5.15, 6.43, 7.89)
+
+plot(x, y)
+
+# simple
+fit1 <- lm(y ~ x)
+abline(fit1, col = "red")
+# quadratic
+fit2 <- lm(y ~ x + I(x^2))
+curve(predict(fit2, newdata = data.frame(x = x)), add = TRUE, col = "blue")
+# cubic 
+fit3 <- lm(y ~ x + I(x^2) + I(x^3))
+curve(predict(fit3, newdata = data.frame(x = x)), add = TRUE, col = "green")
+anova(fit1, fit2, fit3)
+
+
+```

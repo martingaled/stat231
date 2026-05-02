@@ -1,0 +1,66 @@
+---
+title: "Worksheet - 4"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    fontsize: 8pt
+    fig.width: 4
+    fig.height: 3
+    fig.align: "center"
+---
+
+
+```{r setup}
+library(car)
+library(MASS)
+
+# BOSTON dataset
+data(Boston)
+head(Boston)
+colnames(Boston)
+
+y <- Boston$medv
+x1 <- Boston$rm
+x3 <- Boston$lstat
+x4 <- Boston$age
+
+# a
+fit1 <- lm(y ~ x1 +I(x1^2) + x3 + x4)
+summary(fit1)
+vif(fit1)
+# x4 is not significant, so we can remove it and fit the model again
+fit2 <- lm(y ~ x1 +I(x1^2) + x3)
+summary(fit2)
+vif(fit2)
+
+# removing x1
+fit3 <- lm(y ~ I(x1^2) + x3)
+summary(fit3)
+vif(fit3)
+# everything is significant
+# everything is below 5, so no multicollinearity issue (VIF < 5)
+
+
+# centering rm_cent <- rm - mean(rm)
+x1_cent <- x1 - mean(x1)
+fit4 <- lm(y ~ x1_cent + I(x1_cent^2) + x3)
+summary(fit4)
+vif(fit4)
+
+# this is much better, all variables are significant and no multicollinearity issue (VIF < 5)
+
+
+
+```
+
+
+
+## Summary of results:
+a. Model was fit with requested varaibles. Since, x4 was not significant, it was removed and model was fit again. After removing x4, all variables are significant. 
+b. But VIF was high for x1 and x1^2, so x1 was removed and model was fit again. After removing x1, all variables are significant and VIF is below 5, so no multicollinearity issue.
+c. The model was fit after centering
+d. After centering x1, all variables are significant and VIF is below 5, so no multicollinearity issue. In addition $R^2$ and $R^2_{adj}$ improved
+-   `fit3 -> Multiple R-squared:  0.6627,	Adjusted R-squared:  0.6613 `
+-   `fit4 -> Multiple R-squared:  0.7318,	Adjusted R-squared:  0.7302 `
+

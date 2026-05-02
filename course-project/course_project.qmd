@@ -1,0 +1,699 @@
+---
+title: "Analysis of Car Price and Economy in Qatar"
+subtitle: "STAT231: Applied Regression Analysis Course Project"
+author: "Hussain Abdul Kadhir (ID: 202310242)"
+date: "2026-05-01"
+format:
+  pdf:
+    fontsize: 10pt
+    fig.align: "center"
+    toc: true
+    number-sections: true
+    highlight-style: tango
+bibliography: ref.bib
+---
+
+\newpage
+
+:::{.callout-note}
+
+## Overview
+
+This report presents an analysis of the fuel economy and price of cars in Qatar using the `qatarcars` dataset that was developed by @Musgrave2025. We develop multiple linear regression models to understand the relationships between car specifications and their fuel economy and price. The analysis includes model diagnostics, visualizations, and performance evaluation. The key findings indicate that horsepower, mass, and engine type are significant predictors of fuel economy, while horsepower and performance are significant predictors of price. The models demonstrate reasonable predictive performance.
+:::
+
+## Introduction
+
+In this project, we analyze the fuel economy and price of cars in Qatar using the `qatarcars` dataset. We develop multiple linear regression models to understand the relationships between car specifications and their fuel economy and price. The analysis includes model diagnostics, visualizations, and performance evaluation.
+
+
+## Dataset description
+
+The **qatarcars** dataset includes fuel economy, size, performance, and price data for cars in Qatar. Data was sourced from YallaMotors Qatar between January and August 2025.
+
+**Key Variables:**
+
+- `economy`: Fuel economy (L/100km)
+
+- `price`: Car price (2025 Qatari Riyals)
+
+- `horsepower`: Engine power
+
+- `mass`: Car mass (kg)
+
+- `performance`: 0-100 km/h acceleration time (seconds)
+
+- `origin`: Country of manufacture
+
+- `enginetype`: Type of engine
+
+The dataset contains 94 observations after removing missing values.
+
+\newpage
+
+
+## Setup
+
+```{r setup, warning=FALSE, message=FALSE}
+set.seed(123)
+library(tidyverse)
+library(car)
+library(knitr)
+library(qatarcars)
+library(caret)
+library(randtests)
+library(patchwork)
+
+# Color palette
+colors <- c("#E63946", "#2196F3", "#FF9800", "#4CAF50", "#9C27B0",
+            "#00BCD4", "#FF5722", "#8BC34A", "#673AB7", "#F06292")
+```
+
+## Data Cleaning and Exploration
+
+### Initial Data Exploration
+```{r exploration, warning=FALSE, message=FALSE, fig.width=3 , fig.height=3, fig.align = "center"}
+#| fig-cap: "Fuel Economy by Origin - Exploratory Analysis"
+data <- qatarcars
+attach(data)
+
+# Checking structure and summary of the dataset
+glimpse(data)
+colnames(data)
+
+
+```
+
+### Missing values summary
+```{r na_table}
+#| tbl-cap: "Missing Values Summary"
+
+
+# NA summary
+sub <- sapply(data, function(x) sum(is.na(x)))
+
+kable(as.data.frame(sub) |> filter(sub > 0), col.names = c("Variable", "NA_Count"))
+```
+
+```{r}
+
+# Missing values in economy variable detected 
+# economy has 10 NAs
+data |> filter(is.na(economy))
+
+# isna vs enginetype
+table(is.na(economy), enginetype)
+
+
+```
+
+::: {.callout-note}
+-   `economy` variable has 10 missing values, which are all for electric cars. 
+-   This is a case of structural missingness, as fuel economy in L/100km is not applicable for electric vehicles. 
+-   We will remove these observations from the analysis for economy but keep them for price analysis.
+:::
+
+### Summary statistics
+
+```{r summary_continuous_1}
+# summary of continuous variables
+#| tbl-cap: "Summary Statistics for Economy, Price, Horsepower, and Mass"
+kable(summary(data |> dplyr::select(economy, price, horsepower, mass)))
+```
+
+::: {.callout-note}
+-   extreme skewness observed for price variable
+:::
+
+
+```{r summary_continuous_2}
+#| tbl-cap: "Summary Statistics for Dimensions and Performance Variables"
+kable(summary(data |> dplyr::select(length, width, height, trunk, seating, performance)))
+
+# summary of categorical variables
+```
+
+```{r categorical_1}
+#| tbl-cap: "Cross-tabulation of Origin and Engine Type"
+kable(table(data$origin, data$enginetype))
+```
+
+```{r categorical_2}
+#| tbl-cap: "Cross-tabulation of Origin and Car Type"
+kable(table(data$origin, data$type))
+
+data_with_electric <- data |>
+    mutate(origin2 = case_when(
+        origin %in% c("Germany", "Italy", "Sweden", "UK") ~ "European",
+        origin %in% c("Japan", "PR China", "South Korea", "USA") ~ "Non-European"
+    ))
+
+data<- data |>
+    filter(!is.na(economy)) |>
+    mutate(origin2 = case_when(
+        origin %in% c("Germany", "Italy", "Sweden", "UK") ~ "European",
+        origin %in% c("Japan", "PR China", "South Korea", "USA") ~ "Non-European"
+    ))
+
+
+# table with model and make as columns and count as values
+```
+
+::: {.callout-note}
+
+-   Extracted `origin2` variable for better analysis, categorizing cars into European and Non-European based on their country of manufacture.
+-   This categorization allows us to analyze differences in fuel economy and price based on the broader origin of the cars, which may capture regional differences in design and engineering.
+:::
+
+```{r make_summary_table}
+#| tbl-cap: "Summary Statistics by Make"
+kable(data |> group_by(make) |> 
+    summarise(count = n(), 
+                price = round(mean(price), 2), 
+                economy = round(mean(economy), 2)))
+```
+
+
+::: {.callout-note}
+
+### Summary of Data Exploration
+-   The dataset has `NA` for the `economy` variable, which is only present for electric cars. We will remove it from the analysis for economy but keep it for price analysis.
+-   The 'price' variable is heavily right-skewed due to luxury cars, so we can consider log transformation for price in the analysis.
+-   The 'origin' variable can be categorized into three groups: European, USA, and Asian for better analysis. All the brands come under this categorization.
+-   There are some outliers in economy as well, which will be handled during the analysis.
+:::
+
+\newpage
+
+
+## Economy Analysis
+
+### Model Development
+
+
+```{r economy_boxplot, fig.width=3, fig.height=2.5, fig.align = "center", warning=FALSE}
+#| fig-cap: "Fuel Economy by Origin - Box Plot"
+# box plot for economy based on origin2
+ggplot(data, aes(x = origin2, y = economy, fill = origin2)) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_manual(values = colors[c(1, 2, 3)]) +
+  labs(title = "Fuel Economy by Origin", x = "Origin", y = "L/100km") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+```{r models}
+
+# all continuous variables + selected categorical variable 
+# origin, make and model are having too many levels
+# type, enginetype, origin2
+fit1 <- lm(economy ~ length + width + height + seating + trunk + 
+    horsepower + price + mass + performance + origin2 + 
+    type + enginetype, data = data)
+summary(fit1)
+
+
+```
+```{r stepwise_selection, results='hide', message=FALSE, warning=FALSE}
+# stepwise selection
+fit2 <- step(fit1, direction = "both")
+# not printed ~ long summary
+```
+
+```{r others}
+summary(fit2) 
+shapiro.test(fit2$residuals)
+# not normal, checking for outliers
+
+
+# not normal, checking for outliers
+cooksd <- cooks.distance(fit2)
+plot(cooksd, type = "h", main = "Cook's Distance", ylab = "Cook's Distance")
+which(cooksd > 4/nrow(data))
+
+outs <- c(17, 18, 74)
+data[outs, ]
+data |> filter(price > 1e6) 
+
+
+# removing outliers and fitting the model again
+fit3 <- lm(economy ~ horsepower + mass + origin2 + enginetype, data = data[-outs, ])
+summary(fit3)
+
+qqnorm(fit3$residuals, main = "Q-Q Plot: Economy Model")
+qqline(fit3$residuals, col = colors[1])
+shapiro.test(fit3$residuals)
+
+# non constant variance test
+plot(fit3$fitted.values, fit3$residuals,
+     main = "Residuals vs Fitted: Economy Model",
+     xlab = "Fitted Values", ylab = "Residuals",
+     col = colors[2], pch = 19)
+abline(h = 0, col = colors[1], lwd = 2)
+
+
+# trying log transformation for economy
+fit4 <- lm(log(economy) ~ length + width + height + seating + trunk + 
+    horsepower + price + mass + performance + origin2 + 
+    type + enginetype, data = data[-outs, ])
+
+```
+
+```{r stepwise_selection_log, results='hide', message=FALSE, warning=FALSE}
+fit5 <- step(fit4, direction = "both")
+```
+
+```{r log_model_diagnostics}
+summary(fit5)
+# just horsepower, mass and engine type
+fit6 <- lm(log(economy) ~ horsepower + mass + enginetype , data = data[-outs, ])
+summary(fit6)
+
+summary(aov(fit6))
+
+shapiro.test(fit6$residuals)
+qqnorm(fit6$residuals, main = "Q-Q Plot: Log Economy Model")
+qqline(fit6$residuals, col = colors[1])
+
+plot(fit6$fitted.values, fit6$residuals,
+     main = "Residuals vs Fitted: Log Economy Model",
+     xlab = "Fitted Values", ylab = "Residuals",
+     col = colors[2], pch = 19)
+
+vif(fit6)
+
+outlierTest(fit6)
+
+cooksd <- cooks.distance(fit6)
+plot(cooksd, type = "h", main = "Cook's Distance: Log Economy Model", ylab = "Cook's Distance")
+which(cooksd > 4/nrow(data))
+
+# 12 23 41 48 61 74 83 
+# removing outliers and fitting the model again
+fit7 <- lm(log(economy) ~ horsepower + mass + enginetype , data = data[-c(outs, 12, 23, 41, 48, 61, 74, 83), ])
+summary(fit7)
+shapiro.test(fit7$residuals)
+qqnorm(fit7$residuals, main = "Q-Q Plot: Log Economy Model (Outliers Removed)")
+qqline(fit7$residuals, col = colors[1])
+# normally distributed residuals observed
+
+plot(fit7$fitted.values, fit7$residuals,
+     main = "Residuals vs Fitted: Log Economy Model (Outliers Removed)",
+     xlab = "Fitted Values", ylab = "Residuals",
+     col = colors[2], pch = 19)
+# no funnel shape observed, variance is somewhat constant now
+
+vif(fit7)
+# all variables are significant and no multicollinearity issue (VIF < 5)
+
+outlierTest(fit7)
+cooksd <- cooks.distance(fit7)
+plot(cooksd, type = "h", 
+main = "Cook's Distance: Log Economy   Model (Outliers Removed)", 
+ylab = "Cook's Distance")
+which(cooksd > 4/nrow(data))
+
+# comparing fit6 and fit7, very slight improvement in R^2 and adjusted R^2 
+# going with fit6 for economy model
+```
+
+
+
+::: {.callout-important}
+
+### Summary of Economy Analysis
+-   The final model for economy includes `horsepower`, `mass`, and `enginetype` as significant predictors. 
+-   The model explains a reasonable amount of variance in fuel economy, and the residuals are approximately normally distributed with no significant heteroscedasticity observed after removing outliers.
+-   The model can be represented as:
+$$
+\log(economy) = 1.141 + 0.0008739 \cdot horsepower + 0.0003153 \cdot mass + 0.1928 \cdot enginetypePetrol
+$$
+:::
+
+### Visualizations
+
+```{r economy_plots, fig.width=4, fig.height=2.5, fig.align = "center", warning=FALSE, echo=FALSE}
+#| fig-cap: "Relationships Between Economy and Key Variables"
+# Economy vs Horsepower
+ggplot(data, aes(x = horsepower, y = economy)) +
+  geom_point(color = colors[1], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Economy vs Horsepower", x = "Horsepower", y = "L/100km") +
+  theme_minimal()
+
+# Economy vs Mass
+ggplot(data, aes(x = mass, y = economy)) +
+  geom_point(color = colors[3], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Economy vs Mass", x = "Mass (kg)", y = "L/100km") +
+  theme_minimal()
+
+# Economy by Origin
+ggplot(data, aes(x = origin2, y = economy, fill = origin2)) +
+  geom_boxplot(alpha = 0.7) +
+  scale_fill_manual(values = colors[c(1, 2, 3)]) +
+  labs(title = "Fuel Economy by Origin", x = "Origin", y = "L/100km") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Economy vs Performance
+ggplot(data, aes(x = performance, y = economy)) +
+  geom_point(color = colors[4], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Economy vs Performance", x = "0-100 s (seconds)", y = "L/100km") +
+  theme_minimal()
+```
+
+
+## Price Analysis
+
+```{r price_histogram, fig.width=4, fig.height=2.5, fig.align = "center",warning=FALSE}
+#| fig-cap: "Price Distribution Analysis"
+# price histogram
+ggplot(data, aes(x = price)) +
+  geom_histogram(fill = colors[3], bins = 30) +
+  labs(title = "Distribution of Car Prices", x = "Price (QAR)", y = "Frequency") +
+  theme_minimal()
+# log price histogram
+ggplot(data, aes(x = log(price))) +
+  geom_histogram(fill = colors[3], bins = 30) +
+  labs(title = "Distribution of Log Car Prices", x = "Log Price", y = "Frequency") +
+  theme_minimal()
+# removing outliers for price (any price above 600000)
+sub_data <- data |> filter(price < 600000)
+ggplot(sub_data, aes(x = price)) +
+  geom_histogram(fill = colors[4], bins = 30) +
+  labs(title = "Distribution of Car Prices (Extreme values Removed)", 
+  x = "Price (QAR)", y = "Frequency") +
+  theme_minimal()
+# plotting all three histograms together, more height
+```
+
+
+
+### Model Development
+```{r }
+
+fit1 <- lm(log(price) ~ length + width + height + seating + 
+    trunk + horsepower + economy + mass + performance + 
+    origin2 + type + enginetype, data = data[-outs, ])
+summary(fit1)
+```
+
+```{r stepwise_selection_price, results='hide', message=FALSE, warning=FALSE}
+# stepwise selection
+fit2 <- step(fit1, direction = "both")
+```
+
+```{r price_model_diagnostics}
+summary(fit2)
+
+fit3 <- lm(log(price) ~ width + horsepower + origin2, data = data[-outs, ])
+summary(fit3)
+qqnorm(fit3$residuals, main = "Q-Q Plot: Price Model")
+qqline(fit3$residuals, col = colors[1])
+shapiro.test(fit3$residuals)
+
+
+# removing origin2 variable
+
+fit4 <- lm(log(price) ~ horsepower + width, data = data[-outs, ])
+summary(fit4)
+
+shapiro.test(fit4$residuals)
+qqnorm(fit4$residuals, main = "Q-Q Plot: Price Model")
+qqline(fit4$residuals, col = colors[1])
+
+
+residuals <- fit4$residuals
+plot(fit4$fitted.values, residuals,
+     main = "Residuals vs Fitted: Price Model",
+     xlab = "Fitted Values", ylab = "Residuals",
+     col = colors[2], pch = 19)
+abline(h = 0, col = colors[1], lwd = 2)
+
+vif(fit4)
+
+cooksd <- cooks.distance(fit4)
+plot(cooksd, type = "h", main = "Cook's Distance: Price Model", ylab = "Cook's Distance")
+which(cooksd > 4/nrow(data))
+# this will lead to endless loop of outliers, so we can stop here
+
+# simple model with just horsepower
+fit5 <- lm(log(price) ~ horsepower, data = data[-outs, ])
+summary(fit5)
+
+shapiro.test(fit5$residuals)
+qqnorm(fit5$residuals, main = "Q-Q Plot: Price Model (Horsepower Only)", col = colors[1])
+qqline(fit5$residuals, col = colors[1])
+
+residuals <- fit5$residuals
+plot(fit5$fitted.values, residuals,
+     main = "Residuals vs Fitted: Price Model (Horsepower Only)",
+     xlab = "Fitted Values", ylab = "Residuals",
+     col = colors[2], pch = 19)
+abline(h = 0, col = colors[1], lwd = 2)
+# slight funnel shape observed, but a sim
+# fit5 is the final price model
+```
+
+
+
+::: {.callout-important}
+
+### Summary of Price Analysis
+-   The final model for price includes `horsepower` as the most significant predictor, with `width` and `origin2` being less significant. However, removing `origin2` did not significantly improve the model, so we can go with the simpler model with just `horsepower`.
+-   Some heteroscedasticity is observed in the residuals, but the model still provides a reasonable fit to the data.
+-   The model can be represented as:
+$$
+\log(price) = 10.50 + 0.005556 \cdot horsepower
+$$
+
+:::
+
+### Visualizations
+
+```{r price_plots, fig.width=4, fig.height=2.5, fig.align = "center", warning=FALSE, echo=FALSE}
+#| fig-cap: "Relationships Between Price and Key Variables"
+# Price vs Horsepower
+ggplot(sub_data, aes(x = horsepower, y = price)) +
+  geom_point(color = colors[5], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Price vs Horsepower", x = "Horsepower", y = "Price (QAR)") +
+  theme_minimal()
+
+# Price vs Mass
+ggplot(sub_data, aes(x = mass, y = price)) +
+  geom_point(color = colors[7], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Price vs Mass", x = "Mass (kg)", y = "Price (QAR)") +
+  theme_minimal()
+
+# Log Price vs Horsepower
+ggplot(sub_data, aes(x = horsepower, y = log(price), color = performance)) +
+  geom_point(alpha = 0.6) +
+  scale_color_gradient(low = colors[4], high = colors[1]) +
+  labs(title = "Log Price vs Horsepower", x = "Horsepower", 
+       y = "Log Price", color = "Performance") +
+  theme_minimal()
+
+# Price vs Performance
+ggplot(sub_data, aes(x = performance, y = price)) +
+  geom_point(color = colors[8], alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = colors[2], linewidth = 0.8) +
+  labs(title = "Price vs Performance", x = "0-100 s (seconds)", y = "Price (QAR)") +
+  theme_minimal()
+```
+
+
+## Bayesian Approach
+
+```{r bayesian_setup, warning=FALSE, message=FALSE}
+library(brms)
+library(bayesplot)
+```
+
+### Bayesian linear regression for price model
+
+
+```{r bayesian_price, warning=FALSE, message=FALSE,}
+final_fit_price <- fit5
+summary(final_fit_price)
+```
+```{r bayesian_price_model, warning=FALSE, message=FALSE, results = 'hide'}
+brm_price <- brm(log(price) ~ horsepower, data = data[-outs, ], 
+                 prior = c(set_prior("normal(0, 10)", class = "b"), 
+                           set_prior("normal(0, 10)", class = "Intercept"),
+                           set_prior("exponential(1)", class = "sigma")),
+                 iter = 4000, warmup = 1000, chains = 4, seed = 123, 
+                 silent = 1, refresh = 0)
+```
+```{r bayesian_price_summary, warning=FALSE, message=FALSE}
+summary(brm_price)
+bayes_R2(brm_price)
+```
+```{r bayesian_plots, warning=FALSE, message=FALSE, fig.width=7, fig.height=5, fig.align = "center"}
+#| fig-cap: "Bayesian Model Diagnostics for Price Model"
+plot(brm_price)
+```
+
+```{r bayesian_pp_check, warning=FALSE, message=FALSE, fig.width=4, fig.height=3, fig.align = "center"}
+#| fig-cap: "Posterior Predictive Check for Price Model"
+pp_check(brm_price)
+```
+
+```{r comb_plot, echo = FALSE, warning=FALSE, message=FALSE, fig.width=7, fig.height=5, fig.align = "center"}
+
+library(tidyverse)
+library(tidybayes)
+
+data_price <- data[-outs, ]
+
+# Grid for smooth fitted curves
+newdata_price <- tibble(
+  horsepower = seq(
+    min(data_price$horsepower, na.rm = TRUE),
+    max(data_price$horsepower, na.rm = TRUE),
+    length.out = 100
+  )
+)
+
+# Bayesian credible band for expected mean response
+bayes_epred <- brm_price |>
+  add_epred_draws(newdata = newdata_price) |>
+  group_by(horsepower) |>
+  summarise(
+    bayes_mean  = mean(.epred),
+    bayes_lower = quantile(.epred, 0.025),
+    bayes_upper = quantile(.epred, 0.975),
+    .groups = "drop"
+  )
+
+# Bayesian predictive band for future observations
+bayes_pred <- brm_price |>
+  add_predicted_draws(newdata = newdata_price) |>
+  group_by(horsepower) |>
+  summarise(
+    pred_lower = quantile(.prediction, 0.025),
+    pred_upper = quantile(.prediction, 0.975),
+    .groups = "drop"
+  )
+
+# Combined plot
+ggplot(data_price, aes(x = horsepower, y = log(price))) +
+  geom_point(alpha = 0.55) +
+
+  # Bayesian predictive band: wider outer band
+  geom_ribbon(
+    data = bayes_pred,
+    aes(
+      x = horsepower,
+      ymin = pred_lower,
+      ymax = pred_upper
+    ),
+    inherit.aes = FALSE,
+    alpha = 0.15,
+    fill = "blue"
+  ) +
+
+  # Bayesian credible band: narrower inner band
+  geom_ribbon(
+    data = bayes_epred,
+    aes(
+      x = horsepower,
+      ymin = bayes_lower,
+      ymax = bayes_upper
+    ),
+    inherit.aes = FALSE,
+    alpha = 0.30,
+    fill = "blue"
+  ) +
+
+  # Bayesian posterior mean line
+  geom_line(
+    data = bayes_epred,
+    aes(
+      x = horsepower,
+      y = bayes_mean
+    ),
+    inherit.aes = FALSE,
+    color = "blue",
+    linewidth = 1
+  ) +
+
+  # Frequentist regression line + confidence band
+  geom_smooth(
+    method = "lm",
+    formula = y ~ x,
+    se = TRUE,
+    color = "red",
+    linetype = "dashed",
+    linewidth = 1
+  ) +
+
+  labs(
+    title = "Frequentist and Bayesian Regression Fit",
+    subtitle = "Red dashed = frequentist LM; blue line = Bayesian mean; dark blue = credible band; light blue = predictive band",
+    x = "Horsepower",
+    y = "Log Price"
+  ) +
+  theme_minimal()
+```
+
+
+
+### Bayesian linear regression for economy model
+```{r bayesian_economy, warning=FALSE, message=FALSE}
+final_fit_economy <- fit6
+summary(final_fit_economy)
+```
+
+```{r bayesian_economy_model, warning=FALSE, message=FALSE, results = 'hide'}
+brm_economy <- brm(log(economy) ~ horsepower + mass + enginetype, 
+                   data = data[-c(outs), ], 
+                   prior = c(set_prior("normal(0, 10)", class = "b"), 
+                             set_prior("normal(0, 10)", class = "Intercept"),
+                             set_prior("exponential(1)", class = "sigma")),
+                   iter = 4000, warmup = 1000, chains = 4, seed = 123, 
+                   silent = 1, refresh = 0)
+```
+```{r bayesian_economy_summary, warning=FALSE, message=FALSE}
+summary(brm_economy)
+bayes_R2(brm_economy)
+```
+
+```{r bayesian_economy_plots, warning=FALSE, message=FALSE, fig.width=7, fig.height=7, fig.align = "center"}
+#| fig-cap: "Bayesian Model Diagnostics for Economy Model"
+plot(brm_economy)
+```
+
+```{r bayesian_economy_pp_check, warning=FALSE, message=FALSE, fig.width=4, fig.height=3, fig.align = "center"}
+#| fig-cap: "Posterior Predictive Check for Economy Model"
+pp_check(brm_economy)
+```
+
+
+
+
+## Conclusions
+
+The analysis of the `qatarcars` dataset revealed key insights into the determinants of fuel economy and price for cars in Qatar. For fuel economy, horsepower, mass, and engine type were significant predictors, with the final model explaining a reasonable amount of variance. For price, horsepower emerged as the most significant predictor, although some heteroscedasticity was observed in the residuals. The visualizations supported these findings, showing clear relationships between the key variables and the outcomes. Final model with $R^2 = 0.602$ (can explain 60.2% of the variance) can be represented as:
+
+$$
+\log(economy) = 1.141 + 0.0008739 \cdot horsepower + 0.0003153 \cdot mass + 0.1928 \cdot enginetypePetrol
+$$
+
+
+For price, horsepower emerged as the most significant predictor, although some heteroscedasticity was observed in the residuals. The visualizations supported these findings, showing clear relationships between the key variables and the outcomes. Final model with $R^2 = 0.862$ (can explain 86.2% of the variance) can be represented as:
+$$
+\log(price) = 10.50 + 0.005556 \cdot horsepower
+$$
+
+Overall, this analysis provides a comprehensive understanding of the determinants of car fuel economy and price in the Qatari market.
+
+
+
+
+## References
+

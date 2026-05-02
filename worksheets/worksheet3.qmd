@@ -1,0 +1,136 @@
+---
+title: "Worksheet - 3"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    fontsize: 8pt
+    fig.width: 4
+    fig.height: 3
+    fig.align: "center"
+---
+```{r}
+#| include: false
+knitr::opts_chunk$set(fig.width = 4, fig.height = 3)
+```
+
+Use the “cars” dataset in R. It contains speed (mph) as the independent variable and stopping distance (ft) as the dependent variable, $𝑦$: distance $𝑥$: speed Consider the two regression models:
+
+- Model 1: $y = \beta_0 + \beta_1 x + \epsilon$
+
+- Model 2: $y = \beta_0 + \beta_1 x + \beta_2 x^2 + \epsilon$
+
+**Do the following:**
+
+1.  Make a scatterplot of $𝑥$ variable (speed) versus $𝑦$ variable (distance). Are there any linear relationship between $𝑥$ and $𝑦$.
+
+2.  Perform a log‐transformation (on $𝑥$ or $𝑦$ or both) to improve the linearity.
+
+3.  Fit models 1 and 2 to transformed data in Part (b).
+
+4.  Check the constant variance assumption by perfoming residual analysis.
+
+5.  Compare Models 1 and 2 based on Adjusted $𝑅^2$. Which one is preferred?
+
+```{r}
+library(car)
+data(cars)
+colnames(cars)
+x <- cars$speed
+y <- cars$dist
+# 1 scatter plot
+plot(x, y)
+cor(x, y)
+```
+
+
+## Question 1
+-   Both $x$ and $y$ are showing some positive correlation, virtually linear relationship between $x$ and $y$ (correlation = 0.807)
+
+```{r log_transform, fig.width = 5, fig.height = 4}
+# 2 log transformation
+x_log <- log(x)
+y_log <- log(y)
+plot(x_log, y_log)
+cor(x_log, y_log)
+plot(x, log(y))
+cor(x, log(y))
+plot(log(x), y)
+cor(log(x), y)
+```
+
+## Question 2
+-    Log transformation on $y$ and $x$ is showing the highest correlation (0.856) and better linear relationship between $x$ and $y$ compared to other transformations. So, we will use log transformation on both $x$ and $y$ for further analysis.
+
+```{r fits, fig.width = 5, fig.height = 4}
+
+fit1 <- lm(y ~ x)
+plot(fit1$fitted.values, fit1$residuals)
+abline(h = 0, col = "red")
+# funnel shape observed
+summary(fit1)
+
+fit2 <- lm(log(y) ~ log(x))
+plot(fit2$fitted.values, fit2$residuals)
+abline(h = 0, col = "red")
+# funnel shape somewhat reduced but still slightly observed
+summary(fit2)
+
+fit3 <- lm(y ~ x + I(x^2))
+plot(fit3$fitted.values, fit3$residuals)
+abline(h = 0, col = "red")
+# funnel shape observed
+summary(fit3)
+
+fit4 <- lm(log(y) ~ x + I(log(x)^2))
+plot(fit4$fitted.values, fit4$residuals)
+abline(h = 0, col = "red")
+# funnel shape somewhat reduced but still slightly observed
+summary(fit4)
+```
+
+
+## Question 4
+-   Summary of residual analysis for all the models:
+    -   Model 1 and Model 3 are showing clear funnel shape, which indicates that the variance of residuals is not constant (heteroscedasticity).
+    -   Model 2 and Model 4 are showing somewhat reduced funnel shape but still slightly observed, which indicates that the variance of residuals is somewhat improved but still not perfectly constant.
+
+
+```{r summary_r2}
+library(knitr)
+# table of adjusted R^2 and R^2
+results <- data.frame(
+  Model = c("Model 1", "Model 2", "Model 3", "Model 4"),
+  R_squared = c(summary(fit1)$r.squared, 
+                summary(fit2)$r.squared, 
+                summary(fit3)$r.squared, 
+                summary(fit4)$r.squared),
+  Adjusted_R_squared = c(summary(fit1)$adj.r.squared, 
+                          summary(fit2)$adj.r.squared, 
+                          summary(fit3)$adj.r.squared, 
+                          summary(fit4)$adj.r.squared)
+)
+kable(results)
+```
+
+## Question 5
+
+-   summary of $R^2$and Adjusted $R^2$ for all the models:
+    -   Model 2 is showing the highest $R^2$ (0.733) and Adjusted $R^2$ (0.728), which indicates that Model 2 is preferred among the four models based on these metrics.
+
+
+```{r scatter_plot_with_fits, fig.width = 5, fig.height = 4}
+
+plot(log(x), log(y), main = "Scatter plot with fitted lines", xlab = "log(speed)", ylab = "log(distance)")
+abline(fit2, col = "blue", lwd = 2)
+
+```
+
+
+## Overall conclusion and interpretation
+
+-   Based on the analysis, we can conclude that there is a positive correlation between speed and stopping distance. 
+-   Log transformation on both speed and distance improved the linearity and somewhat reduced the heteroscedasticity.
+-   Among the four models considered, Model 2 (log(y) ~ log(x)) is preferred based on the highest R^2 and Adjusted R^2 values.
+-   This suggests that the relationship between speed and stopping distance is better captured by a log-log model compared to a simple linear or quadratic model.
+

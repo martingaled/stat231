@@ -1,0 +1,136 @@
+---
+title: "Worksheet - 1"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    fontsize: 8pt
+---
+## Dataset II: Table B.17 Patient Satisfaction Data
+```{r setup, warning=FALSE, message=FALSE, fig.width = 4, fig.height = 3, fig.align = "center"}
+library(MPV)
+data(table.b17)
+head(table.b17)
+attach(table.b17)
+
+# Satisfaction is the dependent variable
+(n <- length(Satisfaction))
+
+# renaming the variables for easy coding
+y <- Satisfaction
+x1 <- Age
+x2 <- Severity
+x3 <- Surgical.Medical
+x4 <- Anxiety
+
+# scatter plots
+plot(y ~ x1 + x2 + x3 + x4)
+cor(x1, y) # highest
+cor(x2, y)
+cor(x3, y)
+cor(x4, y)
+```
+
+:::::: {.callout-note}
+
+# Scatter plot and correlation
+-   From the scatter plots `x1` is showing negative relationship with dependent variable (correlation = -0.8707049)
+-   Rest of the variables are not showing visible linear relationship, which is further seen in the correlation values
+:::
+```{r finding_the_best_model}
+
+fit1 <- lm(y ~ x1)
+fit2 <- lm(y ~ x2)
+fit3 <- lm(y ~ x3)
+fit4 <- lm(y ~ x4)
+fit5 <-lm(y ~ x1 + x2)
+fit6 <-lm(y ~ x1 + x3)
+fit7 <-lm(y ~ x1 + x4)
+fit8 <-lm(y ~ x2 + x3)
+fit9 <-lm(y ~ x2 + x4)
+fit10 <-lm(y ~ x3 + x4)
+fit11 <-lm(y ~ x1 + x2 + x3)
+fit12 <-lm(y ~ x1 + x2 + x4)
+fit13 <-lm(y ~ x1 + x3 + x4)
+fit14 <-lm(y ~ x2 + x3 + x4)
+fit15 <-lm(y ~ x1 + x2 + x3 + x4)
+
+r_squared <- c()
+adj_r_squared <- c()
+for(i in 1:15){
+  r_squared[i] <- (summary(get(paste0("fit", i)))$r.squared)
+}
+for(i in 1:15){
+  adj_r_squared[i] <- summary(get(paste0("fit", i)))$adj.r.squared
+}
+r_squared
+adj_r_squared
+max(r_squared)
+max(adj_r_squared)
+
+# fit5 has largest adj_rsquared
+fit <- fit5
+summary(fit)
+summary(aov(fit))
+```
+
+
+:::::: {.callout-note}
+# Model selection
+-   `fit5` i.e. `y ~ x1 + x2` is the best based adjusted r-squared (`Multiple R-squared:  0.8096,	Adjusted R-squared:  0.7923 `)
+-   Overall model is significant (`F-statistic: 46.77 on 2 and 22 DF,  p-value: 1.193e-08`)
+-   Both the variables `x1` and `x2` are significant as well.
+:::
+
+```{r model_diagnostics, fig.width = 4, fig.height = 3, fig.align = "center"}
+
+plot(fit$fitted.values, fit$residuals, main = "Residual vs fitted")
+plot(fit$fitted.values, rstandard(fit), main = "Residual vs fitted")
+abline(3,0, lty = 2, col = "red")
+abline(-3,0, lty = 2, col = "red")
+plot(x1, fit$residuals, main = "Residual vs x1")
+plot(x2, fit$residuals, main = "Residual vs x2")
+plot(x3, fit$residuals, main = "Residual vs x3")
+plot(x4, fit$residuals, main = "Residual vs x4")
+plot(fit)
+(abs(rstandard(fit)) > 3)
+(abs(rstandard(fit)) > 3)[17]
+sum(abs(rstandard(fit)) > 3)
+sum(abs(rstudent(fit)) > 3)
+qqnorm(fit$residuals)
+qqline(fit$residuals, lty = 2, col = "red")
+shapiro.test(fit$residuals)
+```
+
+:::::: {.callout-note}
+## Diagnostics
+-   Overall model is not showing any funnel shape
+-   $17^{th}$ is the observation with large residual based on both `rstandard` and `rstudent` residuals
+-   QQplot also shows normality, with $17^{th}$ showing deviation
+-   Normality of residuals is not rejected by Shapiro-Wilk test (`p-value = 0.06411`)
+:::
+
+
+```{r removing_17th_observation}
+data(table.b17)
+df <- table.b17
+df <- df[-17,]
+attach(df)
+y <- Satisfaction
+x1 <- Age
+x2 <- Severity
+fit_updated <- lm(y ~ x1 + x2)
+summary(fit_updated)
+summary(fit)
+summary(aov(fit))
+
+summary(fit)$adj.r.squared
+summary(fit_updated)$adj.r.squared
+```
+
+:::::: {.callout-note}
+## Results after updating the model
+-   After removing the outlier($17^{th}$ observation), the adjusted r-squared jumped from `0.79` to `0.89`.
+-   This clearly shows the influence of the outlier
+-   Overall conclusion: the varibles `age` and `severity` can explain `89%` of the variability. The model's assumptions are all met
+:::

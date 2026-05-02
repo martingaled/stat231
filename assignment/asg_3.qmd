@@ -57,25 +57,53 @@ cor(y, amtbl)
 
 ## b. Model selection
 ```{r simple_regression, tidy=TRUE}
-# since we know from correlation that acidtemp linear related to y
-# we can start with it and do a forward selection manually
-fit1 <- lm(y ~ acidtemp)
-summary(fit1)
-# overall model and acid temp is significant
-fit2 <- lm(y ~ acidtemp + acidconc)
-summary(fit2)
-# overall model is significant but acidconc is not significant
-# r-squared is increased a bit
-# but significant at 0.1 level, we can consider it for the model
-fit3 <- lm(y ~ acidtemp + acidconc + watertemp)
-summary(fit3)
-# overall model is significant but watertemp is not significant
-fit4 <- lm(y ~ acidtemp + acidconc + sulfconc)
-summary(fit4)
-# overall model is significant but sulfconc is not significant
-fit5 <- lm(y ~ acidtemp + acidconc + amtbl)
-summary(fit5)
-# overall model is significant but amtbl is not significant
+
+
+
+# better way to do this combination using loop
+# we need one loop for different number of variables and another loop for different combinations of variables
+vars <- c("acidtemp", "acidconc", "watertemp", "sulfconc", "amtbl")
+fits <- list()
+r_squared <- c()
+adj_r_squared <- c()
+counter <- 1 # since two loops, to keep track of the fit number
+for(i in 1:length(vars)){
+  comb <- combn(vars, i)
+  for(j in 1:ncol(comb)){
+    formula <- as.formula(paste("y ~", paste(comb[, j], collapse = " + ")))
+    fits[[counter]] <- lm(formula)
+    r_squared[counter] <- summary(fits[[counter]])$r.squared
+    adj_r_squared[counter] <- summary(fits[[counter]])$adj.r.squared
+    counter <- counter + 1
+  }
+}
+
+# index of max r-squared
+(which.max(r_squared))
+# index of max adj r-squared
+(which.max(adj_r_squared))
+
+
+# data frame to store the results
+model_results <- data.frame(
+  model = sapply(fits, function(x) paste(names(coef(x))[-1], collapse = " + ")),
+  fit_i = 1:length(fits),
+  r_squared = r_squared,
+  adj_r_squared = adj_r_squared
+)
+
+# sorting the data frame by adj r-squared using dplyr
+library(dplyr)
+head(model_results <- model_results %>%
+  dplyr::arrange(desc(adj_r_squared)))
+fits[[6]]$model[0,] # model variables
+
+summary(fits[[16]])
+summary(fits[[27]])
+summary(fits[[6]])
+summary(aov(fits[[6]]))
+# fit 6 is the optimum based on r-squared and adj r-squared values, as # the overall model is significant, 
+# although acidtemp is significant at 0.05 level, but acidconc is not significant at 0.05 level, but significant at 0.1 level
 
 
 # AIC is a measure of the relative quality of a model 
@@ -83,14 +111,18 @@ summary(fit5)
 # penalizes models with more parameters to prevent overfitting. 
 # The model with the lowest AIC value is better
 # we can check AIC of the models
-AIC(fit1, fit2, fit3, fit4, fit5)
-# fit 2 has the lowest AIC, so we can consider it as the best model
+aic_values <- sapply(fits, AIC)
+# sapply is used to apply the AIC function to each model in the fits list and return a vector of AIC values
+which.min(aic_values)
+# fit 6 has the lowest AIC, so we can consider it as the best model
 
 # using built-in stepwise regression 
 # which uses AIC as the criteria for model selection
 step(lm(y ~ acidtemp + acidconc + watertemp + sulfconc + amtbl), direction = "both")
 
 # we end up with the same model, which is y ~ acidtemp + acidconc
+
+fit <- fits[[6]]
 ```
 
 ### Check the model with out built in function
@@ -108,29 +140,29 @@ dim(X)
 
 # beta_hat ~ parameters
 (beta_hat = solve(t(X)%*%X)%*%t(X)%*%y)
-fit2$coefficients # from lm function
+fit$coefficients # from lm function
 
 
 # y_hat ~ response
 y_hat = X%*%beta_hat
 head(y_hat) # from our computation
-head(fit2$fitted.values) # from lm function
+head(fit$fitted.values) # from lm function
 
 # e_hat ~ error
 e = y - y_hat
 head(e) # from our computation
-head(fit2$residuals) # from lm function
+head(fit$residuals) # from lm function
 
 
 #ms_residual 
 ss_residual <- (t(y)%*%y - t(beta_hat)%*%t(X)%*%y)
 (ms_residual <- ss_residual/(length(y) - (ncol(X))))
-summary.aov(fit2)[[1]]["Residuals", "Mean Sq"] # from lm function
+summary.aov(fit)[[1]]["Residuals", "Mean Sq"] # from lm function
 
 #ms_regression
 ss_regression <- t(beta_hat)%*%t(X)%*%y-(sum(y)^2/n)
 (ms_regression <- ss_regression/(ncol(X)-1))
-(summary.aov(fit2)[[1]]["acidtemp", "Mean Sq"] + summary.aov(fit2)[[1]]["acidconc", "Mean Sq"])/2 # from lm function
+(summary.aov(fit)[[1]]["acidtemp", "Mean Sq"] + summary.aov(fit)[[1]]["acidconc", "Mean Sq"])/2 # from lm function
 
 #ms_total
 ss_total <- (t(y)%*%y-(sum(y))^2/n)
@@ -141,7 +173,7 @@ ms_total <- ss_total/(n-1)
 # H_0 : beta1 = beta2 = 0
 # H_1 : at least one beta is not equal to zero
 (f_0 <- ms_regression/ms_residual)
-(summary.aov(fit2)[[1]]["acidtemp", "F value"] + summary.aov(fit2)[[1]]["acidconc", "F value"])/2 # from lm function
+(summary.aov(fit)[[1]]["acidtemp", "F value"] + summary.aov(fit)[[1]]["acidconc", "F value"])/2 # from lm function
 
 p_value <- 1 - pf(f_0, df1 = ncol(X)-1, df2 = length(y) - ncol(X))
 p_value < 0.05 # significant at 0.05 level
@@ -157,24 +189,24 @@ p_value < 0.05 # significant at 0.05 level
 cjj <- diag(solve(t(X)%*%X))
 se_beta1 <- sqrt(ms_residual*cjj)
 (t_0_acidtemp <- beta_hat[2]/se_beta1[2])
-summary(fit2)$coefficients["acidtemp", "t value"] # from lm function
+summary(fit)$coefficients["acidtemp", "t value"] # from lm function
 
 
 # for acidconc
 # H_0 : beta2 = 0
 # H_1 : beta2 != 0
 (t_0_acidconc <- beta_hat[3]/se_beta1[3])
-summary(fit2)$coefficients["acidconc", "t value"] # from lm function
+summary(fit)$coefficients["acidconc", "t value"] # from lm function
 
 
 # r-squared
 (r_sq <- ss_regression/ss_total)
-summary(fit2)$r.squared # from lm function
+summary(fit)$r.squared # from lm function
 
 
 # adj r-squared
 (adj_r_sq <- 1 - ms_residual/ms_total)
-summary(fit2)$adj.r.squared # from lm function
+summary(fit)$adj.r.squared # from lm function
 ```
 
 
@@ -224,7 +256,7 @@ hist(d_res, breaks = 15)
 #  based on how we estimated the variance of the residuals, we ca have other types of residuals
 
 # 2 studentized residuals
-r_res <- e/sqrt( as.numeric(ms_residual) * (1 - hatvalues(fit2)) )
+r_res <- e/sqrt( as.numeric(ms_residual) * (1 - hatvalues(fit)) )
 # or rstandard(fit2)
 sum(abs(r_res) > 3)
 
@@ -239,37 +271,36 @@ for (i in 1:length(y)) {
   s_sq[i] <- t(e_i) %*% e_i / (length(y_i) - ncol(X_i))
 }
 
-t_res <- e/sqrt( s_sq * (1 - hatvalues(fit2)) )
+t_res <- e/sqrt( s_sq * (1 - hatvalues(fit)) )
 # or rstudent(fit2)
 sum(abs(t_res) > 3)
 
 # 4 press residuals
-p_res <- e/(1 - hatvalues(fit2))
+p_res <- e/(1 - hatvalues(fit))
 
 
 
 # Diagnostic plots
 # residuals vs fitted values for checking constant variance and finding outliers
-plot(fitted.values(fit2), resid(fit2), main = "Residuals vs Fitted")
-plot(fitted.values(fit2), d_res, main = "Standardized Residuals vs Fitted")
-points(fitted.values(fit2), d_res, col = ifelse(abs(d_res) > 3, "red", "black"), pch = 1)
-plot(fitted.values(fit2), r_res, main = "Studentized Residuals vs Fitted")
-points(fitted.values(fit2), r_res, col = ifelse(abs(r_res) > 3, "red", "black"), pch = 1)
-plot(fitted.values(fit2), t_res, main = "R-Student Residuals vs Fitted")
-points(fitted.values(fit2), t_res, col = ifelse(abs(t_res) > 3, "red", "black"), pch = 1)
-plot(fitted.values(fit2), p_res, main = "Press Residuals vs Fitted")
-points(fitted.values(fit2), p_res, col = ifelse(abs(p_res) > 3, "red", "black"), pch = 1)
+plot(fitted.values(fit), resid(fit), main = "Residuals vs Fitted")
+plot(fitted.values(fit), d_res, main = "Standardized Residuals vs Fitted")
+points(fitted.values(fit), d_res, col = ifelse(abs(d_res) > 3, "red", "black"), pch = 1)
+plot(fitted.values(fit), r_res, main = "Studentized Residuals vs Fitted")
+points(fitted.values(fit), r_res, col = ifelse(abs(r_res) > 3, "red", "black"), pch = 1)
+plot(fitted.values(fit), t_res, main = "R-Student Residuals vs Fitted")
+points(fitted.values(fit), t_res, col = ifelse(abs(t_res) > 3, "red", "black"), pch = 1)
+plot(fitted.values(fit), p_res, main = "Press Residuals vs Fitted")
+points(fitted.values(fit), p_res, col = ifelse(abs(p_res) > 3, "red", "black"), pch = 1)
 
 # residuals vs independent variables for checking constant variance
-plot(acidconc, resid(fit2), main = "Residuals vs acidconc")
-plot(acidtemp, resid(fit2), main = "Residuals vs acidtemp")
-
+plot(acidconc, resid(fit), main = "Residuals vs acidconc")
+plot(acidtemp, resid(fit), main = "Residuals vs acidtemp")
 # qq plot for normality
-qqnorm(resid(fit2), main = "QQ Plot of Residuals")
-qqline(resid(fit2))
+qqnorm(resid(fit), main = "QQ Plot of Residuals")
+qqline(resid(fit))
 
 # test for normality
-shapiro.test(resid(fit2))
+shapiro.test(resid(fit))
 # since p-value is greater than 0.05, we fail to reject the null hypothesis
 # which means the residuals are normally distributed
 ```

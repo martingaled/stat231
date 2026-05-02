@@ -1,0 +1,153 @@
+---
+title: "Assignment 4"
+author: "Hussain Abdul Kadhir"
+date: last-modified
+format:
+  pdf:
+    fontsize: 8pt
+    fig.width: 4
+    fig.height: 3
+    fig.align: "center"
+    toc: true
+---
+
+
+\newpage
+
+## Setup
+```{r setup, warning=FALSE, message=FALSE}
+set.seed(123)
+library(car)
+library(knitr) 
+library(tidyverse)
+data <- mtcars
+colnames(data)
+attach(data)
+glimpse(data)
+```
+
+## Dataset and variables
+```{r dataset, warning=FALSE, message=FALSE, echo=FALSE}
+# table of the key variables
+df <- data.frame(
+  Variable = c("mpg", "hp", "wt", "cyl", "vs"),
+  Description = c("Miles/(US) gallon – fuel efficiency", "Gross horsepower", "Weight (1000 lbs)", "Number of cylinders", "Engine type: 0 = V-shaped, 1 = straight"),
+  Type = c("Numeric (Response)", "Numeric", "Numeric", "Categorical: 4, 6, 8", "Categorical: 0, 1")
+)
+kable(df)
+```
+
+
+## Question A
+
+Create the scatterplot of “weight” versus fuel efficiency for each level of “Engine
+Type”, variable “vs”.
+
+```{r scatterplot, warning=FALSE, message=FALSE, fig.width=4, fig.height=3, fig.align = "center"}
+
+# turn categorical variables into factors
+data$cyl <- as.factor(data$cyl)
+data$vs <- as.factor(data$vs)
+
+# with this we can avoid creating dummy variables for vs and cyl
+
+
+# weight vs miles per gallon by engine type
+ggplot(data, aes(x = wt, y = mpg, color = vs)) +
+  geom_point(size = 3) +
+  labs(
+    x = "Weight (1000 lbs)",
+    y = "Miles Per Gallon"
+  ) +
+  theme_minimal()
+```
+
+## Question B
+
+Fit a full linear regression model with:
+All main effects of the four independent variables (wt, hp, cyl, vs) and all possible two-way interactions among them.
+
+```{r linear_model, warning=FALSE, message=FALSE}
+fit1 <- lm(mpg ~ wt + hp + cyl + vs + hp:cyl + hp:vs + cyl:vs, data = data)
+summary(fit1)
+```
+
+```{r stepwise_model, warning=FALSE, message=FALSE, results = 'hide'}
+# stepwise regression to find the best model
+fit2 <- step(fit1, direction = "both")
+```
+
+```{r best_model_summary, warning=FALSE, message=FALSE}
+summary(fit2)
+```
+
+## Question C
+Discuss how “mpg” is affected by:
+
+-   Car weight and horsepower
+-   Number of cylinders
+-   Engine type
+-   Any significant interactions between these variables
+
+
+**Interpretation of the best model (fit2):**
+
+-   The best model includes `wt`, `hp`, `vs`, and the interaction between `hp` and `vs`.
+-   `wt` has a significant negative effect on `mpg` (estimate = -3.445, p-value < 0.001), which means that heavier cars tend to have lower miles per gallon.
+-   `hp` has a marginally significant negative effect on `mpg` (estimate = -0.0187, p-value = 0.072), which suggests that cars with higher horsepower may have slightly lower miles per gallon, but this effect is not statistically significant at the 0.05 level.
+-   `vs` (engine type) has a significant positive effect on `mpg` (estimate = 10.042, p-value = 0.0036), which indicates that cars with straight engines (vs = 1) tend to have higher miles per gallon compared to cars with V-shaped engines (vs = 0).
+-   The interaction between `hp` and `vs` is significant (estimate = -0.0837, p-value = 0.0061), which suggests that the effect of horsepower on miles per gallon differs by engine type. Specifically, the negative effect of horsepower on miles per gallon is stronger for cars with straight engines (vs = 1) compared to cars with V-shaped engines (vs = 0).
+
+## Some diagnostics:
+
+```{r diagnostics, warning=FALSE, message=FALSE, fig.width=3, fig.height=3, fig.align = "center"}
+
+# Normality of residuals
+qqnorm(residuals(fit2))
+qqline(residuals(fit2))
+
+shapiro.test(residuals(fit2))
+
+# Homoscedasticity
+plot(fit2$fitted.values, fit2$residuals)
+abline(h = 0, col = "red")
+
+# cook's distance
+plot(cooks.distance(fit2), type = "h")
+abline(h = 4/(nrow(data)-length(coef(fit2))), col = "red", lty = 2)
+(outs_cook <- which(cooks.distance(fit2) > 4/(nrow(data)-length(coef(fit2)))))
+
+
+outs <- c(17, 28)
+
+# remove outliers
+data_clean <- data[-outs, ]
+fit2_clean <- lm(mpg ~ wt + hp + vs + hp:vs, data = data_clean)
+summary(fit2_clean)
+
+
+# Normality of residuals after removing outliers
+qqnorm(residuals(fit2_clean))
+qqline(residuals(fit2_clean))
+shapiro.test(residuals(fit2_clean))
+
+# Homoscedasticity after removing outliers
+plot(fit2_clean$fitted.values, fit2_clean$residuals)
+abline(h = 0, col = "red")
+
+```
+
+## Question E
+::: {.callout-note}
+
+## Interpretation and conclusion:
+-   Final model suggests that weight, engine type, and the interaction between horsepower and engine type are significant predictors of miles per gallon.
+-   With 1 unit increase in weight, miles per gallon decreases by approximately 3.445 units, holding other variables constant.
+-   Cars with straight engines (vs = 1) have on average 10.042 more miles per gallon compared to cars with V-shaped engines (vs = 0), holding other variables constant.
+-   The negative effect of horsepower on miles per gallon is stronger for cars with straight engines compared to cars with V-shaped engines.
+-   After removing outliers, the model still shows similar significant predictors, and the normality and homoscedasticity of residuals are improved.
+-   Also, the R-squared of the model increased, as shown below:
+    -   `Multiple R-squared:  0.8741,	Adjusted R-squared:  0.8555`
+    -   `Multiple R-squared:  0.9008,	Adjusted R-squared:  0.8849`
+:::
+
